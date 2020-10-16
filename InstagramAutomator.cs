@@ -18,6 +18,7 @@ using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 using OpenQA.Selenium.Appium.Enums;
 using OpenQA.Selenium.Appium.Service;
+using RestSharp;
 
 namespace IGAccountCreator
 {
@@ -30,6 +31,8 @@ namespace IGAccountCreator
         private readonly IConfiguration _configuration;
         private static AndroidDriver<AppiumWebElement> _driver;
         private List<InstagramAccountInformation> _records;
+
+        private const string ProxyId = "1B5C2EDC";
 
         public InstagramAutomator(ILogger<InstagramAutomator> logger, IConfiguration configuration)
         {
@@ -68,6 +71,8 @@ namespace IGAccountCreator
                 csv.Configuration.Delimiter = ";";
                 _records = csv.GetRecords<InstagramAccountInformation>().ToList();
             
+                _logger.LogInformation($"There are {_records.Count} accounts to create.");
+                
                 foreach (var record in _records)
                 {
                     _logger.LogInformation($"Creating account:\n{record.ToJsonF()}");
@@ -75,6 +80,7 @@ namespace IGAccountCreator
                     ChangeProfilePicture(record.ProfilePicture);
                     ChangeFullName(record.Fullname);
                     ChangeBiography(record.Bio);
+                    RenewIp();
                 }
             }
             else
@@ -83,7 +89,30 @@ namespace IGAccountCreator
             }
             return Task.CompletedTask;
         }
-        
+
+        private void RenewIp()
+        {
+            var client = new RestClient($"https://hypeproxy.io/api/Utils/DirectRenewIp/{ProxyId}");
+            var request = new RestRequest(Method.GET);
+            var response = client.Execute(request);
+            if (response.IsSuccessful)
+            {
+                _logger.LogInformation($"Successfully renewed IP, new IP: {DisplayCurrentIp()}");
+            }
+            else
+            {
+                _logger.LogError("Unable to renew IP");
+            }
+        }
+
+        private static string DisplayCurrentIp()
+        {
+            var client = new RestClient($"https://hypeproxy.io/api/Utils/GetExternalIp/{ProxyId}");
+            var request = new RestRequest(Method.GET);
+            var response = client.Execute(request);
+            return response.Content;
+        }
+
         private void RegisterAccount(InstagramAccountInformation record)
         {
             var signupCta = _driver.FindElements(By.Id("com.instagram.android:id/sign_up_with_email_or_phone"));
