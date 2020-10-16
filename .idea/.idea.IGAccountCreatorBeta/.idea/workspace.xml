@@ -9,17 +9,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bf1911d0-fe51-4b8b-b63d-ea776046958b" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/contentModel.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/encodings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/indexLayout.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/projectSettingsUpdater.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/IGAccountCreatorBeta.csproj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/IGAccountCreatorBeta.sln" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.IGAccountCreatorBeta/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Program.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -85,7 +76,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1602772224599</updated>
-      <workItem from="1602772226085" duration="8442000" />
+      <workItem from="1602772226085" duration="9428000" />
     </task>
     <servers />
   </component>
