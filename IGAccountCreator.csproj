@@ -8,6 +8,7 @@
     <ItemGroup>
       <PackageReference Include="Appium.WebDriver" Version="4.2.1" />
       <PackageReference Include="ClintSharp" Version="1.1.1" />
+      <PackageReference Include="MailKit" Version="2.9.0" />
     </ItemGroup>
 
 </Project>
