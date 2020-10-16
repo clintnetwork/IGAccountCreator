@@ -5,10 +5,14 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using ClintSharp;
 using CsvHelper;
 using MailKit;
 using MailKit.Net.Imap;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
@@ -17,58 +21,73 @@ using OpenQA.Selenium.Appium.Service;
 
 namespace IGAccountCreator
 {
-    public class InstagramAutomator
+    /// <summary>
+    /// 
+    /// </summary>
+    public class InstagramAutomator : BackgroundService
     {
+        private readonly ILogger<InstagramAutomator> _logger;
+        private readonly IConfiguration _configuration;
         private static AndroidDriver<AppiumWebElement> _driver;
         private List<InstagramAccountInformation> _records;
 
-        public InstagramAutomator()
+        public InstagramAutomator(ILogger<InstagramAutomator> logger, IConfiguration configuration)
         {
+            _logger = logger;
+            _configuration = configuration;
             Environment.SetEnvironmentVariable(AppiumServiceConstants.NodeBinaryPath, "/usr/local/bin/node");
             Environment.SetEnvironmentVariable(AppiumServiceConstants.AppiumBinaryPath, "/usr/local/bin/appium");
             Environment.SetEnvironmentVariable("ANDROID_HOME", "/Users/clint.network/Library/Android/sdk");
             Environment.SetEnvironmentVariable("JAVA_HOME", "/Library/Java/JavaVirtualMachines/jdk1.8.0_261.jdk/Contents/Home");
-
+            
             var appiumLocalService = new AppiumServiceBuilder().UsingAnyFreePort().Build();
             appiumLocalService.Start();
-
+            
             var appiumOptions = new AppiumOptions();
-            appiumOptions.AddAdditionalCapability(MobileCapabilityType.DeviceName, "EML-L29");
+            var deviceName = configuration.GetSection("DeviceSetup").GetValue<string>("DeviceName");
+            
+            appiumOptions.AddAdditionalCapability(MobileCapabilityType.DeviceName, deviceName);
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.PlatformName, "Android");
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.PlatformVersion, "10.0");
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.NoReset, false);
             appiumOptions.AddAdditionalCapability("appPackage", "com.instagram.android");
             appiumOptions.AddAdditionalCapability("appActivity", "com.instagram.android.activity.MainTabActivity");
             
-            Console.WriteLine("Starting...");
+            _logger.LogInformation("Starting InstagramAutomator...");
             _driver = new AndroidDriver<AppiumWebElement>(appiumLocalService, appiumOptions);
-            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(30);
-        }
-
-        public void LoadCsv(string inputFile)
-        {
-            using var reader = new StreamReader(inputFile);
-            using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-            csv.Configuration.Delimiter = ";";
-            _records = csv.GetRecords<InstagramAccountInformation>().ToList();
+            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(60);
         }
         
-        public void Run()
+        protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            foreach (var record in _records)
+            if (File.Exists("input.csv"))
             {
-                Console.WriteLine($"Creating account:\n{record.ToJsonF()}");
-                RegisterAccount(record);
-                ChangeProfilePicture(record.ProfilePicture);
-                ChangeFullName(record.Fullname);
-                ChangeBiography(record.Bio);
+                _logger.LogInformation("Load accounts from input.csv");
+                using var reader = new StreamReader("input.csv");
+                using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+                csv.Configuration.Delimiter = ";";
+                _records = csv.GetRecords<InstagramAccountInformation>().ToList();
+            
+                foreach (var record in _records)
+                {
+                    _logger.LogInformation($"Creating account:\n{record.ToJsonF()}");
+                    RegisterAccount(record);
+                    ChangeProfilePicture(record.ProfilePicture);
+                    ChangeFullName(record.Fullname);
+                    ChangeBiography(record.Bio);
+                }
             }
+            else
+            {
+                _logger.LogError("The input file (input.csv) does not exists.");
+            }
+            return Task.CompletedTask;
         }
-
+        
         private void RegisterAccount(InstagramAccountInformation record)
         {
             var signupCta = _driver.FindElements(By.Id("com.instagram.android:id/sign_up_with_email_or_phone"));
-            Console.WriteLine($"Is setup CTA is present? {signupCta.Any()}");
+            _logger.LogInformation($"Is setup CTA is present? {signupCta.Any()}");
             if (signupCta.Any())
             {
                 signupCta.First().Click();
@@ -92,7 +111,7 @@ namespace IGAccountCreator
                 _driver.FindElement(By.Id("com.instagram.android:id/password")).SendKeys(record.Password);
                 _driver.FindElement(By.Id("com.instagram.android:id/remember_password_checkbox")).Click();
                 _driver.FindElement(By.Id("com.instagram.android:id/continue_without_ci")).Click();
-
+        
                 _driver.FindElement(By.Id("com.instagram.android:id/next_button")).Click();
                 _driver.FindElement(By.Id("com.instagram.android:id/primary_button")).Click();
                 _driver.FindElement(By.Id("com.instagram.android:id/add_age_link")).Click();
@@ -111,9 +130,11 @@ namespace IGAccountCreator
                 _driver.FindElement(By.Id("com.instagram.android:id/action_bar_button_action")).Click();
             }
         }
-
-        private static void ChangeProfilePicture(string profilePicture)
+        
+        private void ChangeProfilePicture(string profilePicture)
         {
+            _logger.LogInformation($"Update profile picture: {profilePicture}");
+            
             try
             {
                 var extension = new FileInfo(profilePicture).Extension.Replace(".", "");
@@ -130,7 +151,7 @@ namespace IGAccountCreator
             _driver
                 .FindElement(By.Id("com.instagram.android:id/profile_tab"))
                 .Click();
-
+        
             _driver
                 .FindElement(By.Id("com.instagram.android:id/coordinator_root_layout"))
                 .FindElements(By.ClassName("android.widget.Button"))
@@ -143,12 +164,14 @@ namespace IGAccountCreator
             _driver.FindElement(By.Id("com.instagram.android:id/next_button_textview")).Click();
         }
         
-        private static void ChangeFullName(string fullname)
+        private void ChangeFullName(string fullname)
         {
+            _logger.LogInformation($"Update ful name: {fullname}");
+            
             _driver
                 .FindElement(By.Id("com.instagram.android:id/profile_tab"))
                 .Click();
-
+        
             _driver
                 .FindElement(By.Id("com.instagram.android:id/coordinator_root_layout"))
                 .FindElements(By.ClassName("android.widget.Button"))
@@ -164,13 +187,14 @@ namespace IGAccountCreator
             
             _driver.FindElement(By.XPath(@"//android.widget.ViewSwitcher[@content-desc=""Done""]/android.widget.ImageView")).Click();
         }
-
-        private static void ChangeBiography(string bio)
+        
+        private void ChangeBiography(string bio)
         {
+            _logger.LogInformation($"Update biography: {bio}");
             _driver
                 .FindElement(By.Id("com.instagram.android:id/profile_tab"))
                 .Click();
-
+        
             _driver
                 .FindElement(By.Id("com.instagram.android:id/coordinator_root_layout"))
                 .FindElements(By.ClassName("android.widget.Button"))
@@ -183,12 +207,12 @@ namespace IGAccountCreator
             _driver.FindElement(By.XPath(@"//android.widget.ViewSwitcher[@content-desc=""Done""]/android.widget.ImageView")).Click();
             _driver.FindElement(By.XPath(@"//android.widget.ViewSwitcher[@content-desc=""Done""]/android.widget.ImageView")).Click();
         }
-
-        private static string GetConfirmationCode(string email, string password)
+        
+        private string GetConfirmationCode(string email, string password)
         {
             for (var i = 0; i <= 10; i++)
             {
-                Console.WriteLine($"Check confirmation code.");
+                _logger.LogInformation($"Check confirmation code.");
                 using var imapClient = new ImapClient();
                 imapClient.Connect("outlook.office365.com", 993, true);
                 imapClient.Authenticate(email, password);
@@ -206,15 +230,15 @@ namespace IGAccountCreator
                 
                 if (confirmationCode.IsNotNull() && IsNumeric(confirmationCode))
                 {
-                    Console.WriteLine($"Confirmation code found: {confirmationCode}.");
+                    _logger.LogWarning($"Confirmation code found: {confirmationCode}.");
                     return confirmationCode;
                 }
-                Console.WriteLine("Confirmation code not found.");
+                _logger.LogError("Confirmation code not found.");
                 Thread.Sleep(TimeSpan.FromSeconds(10));
             }
             return null;
         }
-
+        
         private static bool IsNumeric(string s) => int.TryParse(s, out var i);
     }
 }
