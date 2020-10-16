@@ -141,7 +141,9 @@ namespace IGAccountCreator
             _driver.FindElement(By.XPath("/hierarchy/android.widget.FrameLayout/android.widget.FrameLayout/android.widget.FrameLayout/android.widget.LinearLayout/android.widget.ListView/android.widget.FrameLayout[1]")).Click();
             _driver.FindElement(By.Id("com.instagram.android:id/next_button_textview")).Click();
             _driver.FindElement(By.Id("com.instagram.android:id/next_button_textview")).Click();
-        }private static void ChangeFullName(string fullname)
+        }
+        
+        private static void ChangeFullName(string fullname)
         {
             _driver
                 .FindElement(By.Id("com.instagram.android:id/profile_tab"))
