@@ -1,12 +1,20 @@
-﻿namespace IGAccountCreator
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+namespace IGAccountCreator
 {
-    static class Program
+    public class Program
     {
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
-            var automator = new InstagramAutomator();
-            automator.LoadCsv("input.csv");
-            automator.Run();
-;        }
+            CreateHostBuilder(args).Build().Run();
+        }
+
+        private static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureServices((hostContext, services) =>
+                {
+                    services.AddHostedService<InstagramAutomator>();
+                });
     }
 }
