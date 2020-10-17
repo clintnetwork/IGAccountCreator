@@ -32,7 +32,7 @@ namespace IGAccountCreator
         private static AndroidDriver<AppiumWebElement> _driver;
         private List<InstagramAccountInformation> _records;
 
-        private const string ProxyId = "1B5C2EDC";
+        private const string ProxyId = "DA85696F";
 
         public InstagramAutomator(ILogger<InstagramAutomator> logger, IConfiguration configuration)
         {
@@ -83,6 +83,7 @@ namespace IGAccountCreator
                     ChangeFullName(record.Fullname);
                     ChangeBiography(record.Bio);
                     RenewIp();
+                    _driver.ResetApp();
                 }
             }
             else
@@ -117,6 +118,10 @@ namespace IGAccountCreator
 
         private void RegisterAccount(InstagramAccountInformation record)
         {
+            var multiLogin = _driver.FindElements(By.Id("com.google.android.gms:id/credential_picker_layout"));
+            if (multiLogin.Any())
+                _driver.FindElement(By.Id("com.google.android.gms:id/cancel")).Click();
+            
             var signupCta = _driver.FindElements(By.Id("com.instagram.android:id/sign_up_with_email_or_phone"));
             _logger.LogInformation($"Is setup CTA is present? {signupCta.Any()}");
             if (signupCta.Any())
@@ -247,7 +252,8 @@ namespace IGAccountCreator
                 using var imapClient = new ImapClient();
                 imapClient.Connect("outlook.office365.com", 993, true);
                 imapClient.Authenticate(email, password);
-            
+                // TODO: handle login error
+                
                 var inbox = imapClient.Inbox;
                 inbox.Open(FolderAccess.ReadOnly);
                 
