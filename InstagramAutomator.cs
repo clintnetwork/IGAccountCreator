@@ -55,6 +55,8 @@ namespace IGAccountCreator
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.NoReset, false);
             appiumOptions.AddAdditionalCapability("appPackage", "com.instagram.android");
             appiumOptions.AddAdditionalCapability("appActivity", "com.instagram.android.activity.MainTabActivity");
+            appiumOptions.AddAdditionalCapability(MobileCapabilityType.Language, "en");
+            appiumOptions.AddAdditionalCapability(MobileCapabilityType.Locale, "US");
             
             _logger.LogInformation("Starting InstagramAutomator...");
             _driver = new AndroidDriver<AppiumWebElement>(appiumLocalService, appiumOptions);
