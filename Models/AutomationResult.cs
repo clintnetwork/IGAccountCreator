@@ -6,7 +6,7 @@ namespace IGAccountCreator.Models
         public string ErrorMessage { get; set; }
 
         public static AutomationResult Error(string message) =>
-            new AutomationResult()
+            new AutomationResult
             {
                 IsSuccess = false,
                 ErrorMessage = message

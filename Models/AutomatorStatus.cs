@@ -10,5 +10,6 @@ namespace IGAccountCreator.Models
         public bool HasRenewedIp { get; set; }
         public string Details { get; set; }
         public string UsedIp { get; set; }
+        public double Countdown { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ClintSharp;
 using CsvHelper;
+using CsvHelper.Configuration;
 using IGAccountCreator.Models;
 using MailKit;
 using MailKit.Net.Imap;
@@ -34,7 +36,7 @@ namespace IGAccountCreator
         private static AndroidDriver<AppiumWebElement> _driver;
         private List<InstagramAccountInformation> _records;
 
-        private const string ProxyId = "DA85696F";
+        private const string ProxyId = "B22693E3";
 
         public InstagramAutomator(ILogger<InstagramAutomator> logger, IConfiguration configuration)
         {
@@ -46,17 +48,17 @@ namespace IGAccountCreator
             Environment.SetEnvironmentVariable("ANDROID_HOME", "/Users/clint.network/Library/Android/sdk");
             Environment.SetEnvironmentVariable("JAVA_HOME", "/Library/Java/JavaVirtualMachines/jdk1.8.0_261.jdk/Contents/Home");
 
-            // var appiumRemoteService = new AppiumServiceBuilder()..Build();
             var appiumLocalService = new AppiumServiceBuilder().UsingAnyFreePort().Build();
             appiumLocalService.Start();
             
             var appiumOptions = new AppiumOptions();
             var deviceName = configuration.GetSection("DeviceSetup").GetValue<string>("DeviceName");
+            var platformVersion = configuration.GetSection("DeviceSetup").GetValue<string>("PlatformVersion");
             
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.DeviceName, deviceName);
+            appiumOptions.AddAdditionalCapability(MobileCapabilityType.PlatformVersion, platformVersion);
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.PlatformName, "Android");
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.AutomationName, "uiautomator2");
-            appiumOptions.AddAdditionalCapability(MobileCapabilityType.PlatformVersion, "10.0");
             appiumOptions.AddAdditionalCapability(MobileCapabilityType.NoReset, true);
             appiumOptions.AddAdditionalCapability("appPackage", "com.instagram.android");
             appiumOptions.AddAdditionalCapability("appActivity", "com.instagram.android.activity.MainTabActivity");
@@ -66,16 +68,13 @@ namespace IGAccountCreator
             appiumOptions.AddAdditionalCapability("unicodeKeyboard", true);
             // appiumOptions.AddAdditionalCapability("resetKeyboard", true);
             
-            _logger.LogInformation("Starting InstagramAutomator...");
             _driver = new AndroidDriver<AppiumWebElement>(appiumLocalService, appiumOptions);
             _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(60);
-
-            // var t = _driver.Manage().Logs.GetLog(LogType.Client);
-            // Console.WriteLine(t.ToJsonF());
         }
         
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            _logger.LogInformation("Starting IG Account Creator...");
             if (File.Exists("input.csv"))
             {
                 _logger.LogInformation("Load accounts from input.csv");
@@ -84,38 +83,56 @@ namespace IGAccountCreator
                 csv.Configuration.Delimiter = ";";
                 _records = csv.GetRecords<InstagramAccountInformation>().ToList();
                 
-                var output = new List<AutomatorStatus>();
-            
                 _logger.LogInformation($"There are {_records.Count} accounts to create.");
+                
+                var outputWriter = new StreamWriter("output.csv");
+                var outputCsv = new CsvWriter(outputWriter, CultureInfo.InvariantCulture);
+                outputCsv.Configuration.Delimiter = ";";
+                
+                outputCsv.WriteHeader<AutomatorStatus>();
+                outputCsv.NextRecord();
+
+                // for (var i = 0; i < 5; i++)
+                // {
+                //     outputCsv.WriteRecord(new AutomatorStatus()
+                //     {
+                //         Username = i.ToString()
+                //     });
+                //     outputCsv.NextRecord();
+                //     Console.ReadLine();
+                // }
+                // outputCsv.Flush();
                 
                 foreach (var record in _records)
                 {
                     _logger.LogInformation($"Creating account:\n{record.ToJsonF()}");
-
-                    // var registerAccount = RegisterAccount(record);
+                
+                    var sw = new Stopwatch();
+                    sw.Start();
+                    
+                    var registerAccount = RegisterAccount(record);
                     var changeProfilePicture = ChangeProfilePicture(record.ProfilePicture);
                     var changeBiography = ChangeBiography(record.Bio);
                     var renewIp = RenewIp();
                     _driver.ResetApp();
                     
-                    output.Add(new AutomatorStatus
+                    outputCsv.WriteRecord(new AutomatorStatus
                     {
                         Email = record.Email,
                         Username = record.Username,
-                        // HasRegistredAccount = registerAccount.IsSuccess,
+                        HasRegistredAccount = registerAccount.IsSuccess,
                         HasUpdatedProfilePicture = changeProfilePicture.IsSuccess,
                         HasUpdatedBio = changeBiography.IsSuccess,
                         HasRenewedIp = renewIp.IsSuccess,
                         Details = $"pp={changeProfilePicture.ErrorMessage ?? "N/a"}, bio={changeBiography.ErrorMessage ?? "N/a"}",
-                        UsedIp = GetCurrentIp()
+                        UsedIp = GetCurrentIp(),
+                        Countdown = sw.Elapsed.TotalSeconds
                     });
+                    outputCsv.NextRecordAsync();
+                    sw.Stop();
                 }
                 
-                _logger.LogInformation($"Account creation result:\n{output}");
-                
-                using var outputWriter = new StreamWriter("output.csv");
-                using var outputCsv = new CsvWriter(outputWriter, CultureInfo.InvariantCulture);
-                outputCsv.WriteRecords(output);
+                // outputCsv.Flush();
             }
             else
             {
@@ -126,9 +143,15 @@ namespace IGAccountCreator
         
         public override async Task StopAsync(CancellationToken stoppingToken)
         {
+            _logger.LogInformation("Stopping IG Account Creator...");
             await base.StopAsync(stoppingToken);
         }
 
+        /// <summary>
+        /// Create an Instagram account
+        /// </summary>
+        /// <param name="record"></param>
+        /// <exception cref="Exception">If the program crash</exception>
         private AutomationResult RegisterAccount(InstagramAccountInformation record)
         {
             try
@@ -174,8 +197,6 @@ namespace IGAccountCreator
                     FindElement(By.Id("com.instagram.android:id/username")).SendKeys(record.Username);
                     FindElement(By.Id("com.instagram.android:id/next_button")).Click();
                     
-                    Console.WriteLine(_driver.PageSource);
-                
                     FindElement(By.Id("com.instagram.android:id/skip_button")).Click();
                     // FindElement(By.Id("com.instagram.android:id/skip_button")).Click();
                     FindElement(By.Id("com.instagram.android:id/negative_button")).Click();
@@ -192,6 +213,10 @@ namespace IGAccountCreator
             }
         }
         
+        /// <summary>
+        /// Set account profile picture
+        /// </summary>
+        /// <param name="profilePicture">A valid http(s) jpg or png link</param>
         private AutomationResult ChangeProfilePicture(string profilePicture)
         {
             _logger.LogInformation($"Update profile picture: {profilePicture}");
@@ -238,6 +263,7 @@ namespace IGAccountCreator
             }
         }
 
+        [Obsolete("Fullname setup at registration.")]
         private AutomationResult ChangeFullName(string fullname)
         {
             _logger.LogInformation($"Update fullname: {fullname}");
@@ -272,6 +298,9 @@ namespace IGAccountCreator
             }
         }
         
+        /// <summary>
+        /// Change the Instagram account biography
+        /// </summary>
         private AutomationResult ChangeBiography(string bio)
         {
             _logger.LogInformation($"Update biography: {bio}");
@@ -301,6 +330,9 @@ namespace IGAccountCreator
             }
         }
 
+        /// <summary>
+        /// Renew the IP of the 4G proxy
+        /// </summary>
         private AutomationResult RenewIp()
         {
             var client = new RestClient($"https://hypeproxy.io/api/Utils/DirectRenewIp/{ProxyId}");
@@ -318,6 +350,9 @@ namespace IGAccountCreator
             }
         }
 
+        /// <summary>
+        /// Get the current IP
+        /// </summary>
         private static string GetCurrentIp()
         {
             var client = new RestClient($"https://hypeproxy.io/api/Utils/GetExternalIp/{ProxyId}");
@@ -326,6 +361,9 @@ namespace IGAccountCreator
             return response.Content.Replace("\"", "");
         }
         
+        /// <summary>
+        /// Grab the confirmation code by connecting to the Imap
+        /// </summary>
         private string GetConfirmationCode(string email, string password)
         {
             for (var i = 0; i <= 10; i++)
@@ -373,8 +411,9 @@ namespace IGAccountCreator
 
         private ReadOnlyCollection<AppiumWebElement> FindElements(By by)
         {
-            _logger.LogTrace($"Find elements (element={by})");
-            return _driver.FindElements(by);
+            var elements =  _driver.FindElements(by);
+            _logger.LogTrace($"Find elements (element={by}, count={elements.Count})");
+            return elements;
         }
         
         private static bool IsNumeric(string s) => int.TryParse(s, out var i);
